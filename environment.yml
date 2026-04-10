@@ -21,5 +21,6 @@ dependencies:
     - ollama
     - groq
     - pymupdf
+    - pypdf
   
     # add other pip deps here

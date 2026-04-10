@@ -1,17 +1,17 @@
 /**
  * DLP Chatbot - Main Application Logic
- * Merged: Chat History + Assessment + Guidelines + Feedback
+ * Includes: Chat History, Assessment, Guidelines, Feedback, AI Scanner, PDF Scanner, & Welcome Screen
  */
 
 class DLPChatbotApp {
     constructor() {
         // Core State
-        this.conversations = []; // Stores ALL conversations
-        this.activeChatId = null; // ID of the currently open chat
+        this.conversations = [];
+        this.activeChatId = null;
         this.apiBaseUrl = '/api';
         this.selectedRating = 0;
-        this.currentUtterance = null; // Track current speech object
-        
+        this.currentUtterance = null;
+        this.currentBase64Image = null;
         
         this.init();
     }
@@ -19,9 +19,10 @@ class DLPChatbotApp {
     init() {
         this.cacheElements();
         this.attachEventListeners();
-        this.loadSavedData(); // Loads all chats from LocalStorage
+        this.loadSavedData();
     }
-cacheElements() {
+
+    cacheElements() {
         // Navigation & Sidebar
         this.navTabs = document.querySelectorAll('.nav-tab');
         this.tabContents = document.querySelectorAll('.tab-content');
@@ -32,6 +33,7 @@ cacheElements() {
         this.userInput = document.getElementById('userInput');
         this.sendBtn = document.getElementById('sendBtn');
         this.chatMessages = document.getElementById('chatMessages');
+        this.welcomeScreen = document.getElementById('welcomeScreen');
 
         // Guidelines Area
         this.backToChatBtn = document.getElementById('backToChatBtn');
@@ -44,13 +46,30 @@ cacheElements() {
         this.stars = document.querySelectorAll('.star');
         this.ratingInput = document.getElementById('rating');
 
-        // Legal Section
-        this.legalContent = document.getElementById('legalContent');
-        
         // General UI
         this.clearDataBtn = document.getElementById('clearAllData');
         this.toggleThemeBtn = document.getElementById('toggleTheme');
         this.notification = document.getElementById('notification');
+
+        // AI Image Scanner Area
+        this.uploadArea = document.getElementById('uploadArea');
+        this.defectImage = document.getElementById('defectImage');
+        this.previewArea = document.getElementById('previewArea');
+        this.imagePreview = document.getElementById('imagePreview');
+        this.removeImageBtn = document.getElementById('removeImageBtn');
+        this.scanBtn = document.getElementById('scanBtn');
+        this.loadingIndicator = document.getElementById('loadingIndicator');
+        this.scanResult = document.getElementById('scanResult');
+
+        // PDF Scanner Area
+        this.pdfUploadArea = document.getElementById('pdfUploadArea');
+        this.pdfFile = document.getElementById('pdfFile');
+        this.pdfPreviewArea = document.getElementById('pdfPreviewArea');
+        this.pdfFileName = document.getElementById('pdfFileName');
+        this.removePdfBtn = document.getElementById('removePdfBtn');
+        this.scanPdfBtn = document.getElementById('scanPdfBtn');
+        this.pdfLoadingIndicator = document.getElementById('pdfLoadingIndicator');
+        this.pdfScanResult = document.getElementById('pdfScanResult');
     }
 
     attachEventListeners() {
@@ -60,59 +79,104 @@ cacheElements() {
         });
 
         // Chat Actions
-        this.newChatBtn.addEventListener('click', () => this.startNewChat());
-        this.sendBtn.addEventListener('click', () => this.sendMessage());
+        if(this.newChatBtn) this.newChatBtn.addEventListener('click', () => this.startNewChat());
+        if(this.sendBtn) this.sendBtn.addEventListener('click', () => this.sendMessage());
 
         // Enter Key to Send
-        this.userInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) { 
-                e.preventDefault();
-                this.sendMessage();
-            }
-        });
+        if(this.userInput) {
+            this.userInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) { 
+                    e.preventDefault();
+                    this.sendMessage();
+                }
+            });
 
-        // Auto-resize Textarea
-        this.userInput.addEventListener('input', function() {
-            this.style.height = 'auto';
-            this.style.height = (this.scrollHeight) + 'px';
-        });
+            // Auto-resize Textarea
+            this.userInput.addEventListener('input', function() {
+                this.style.height = 'auto';
+                this.style.height = (this.scrollHeight) + 'px';
+            });
+        }
 
-        // Back Button in Guidelines
         if (this.backToChatBtn) {
             this.backToChatBtn.addEventListener('click', () => this.switchTab('chat'));
         }
 
-        // Form Submissions
-        if (this.assessmentForm) {
-            this.assessmentForm.addEventListener('submit', (e) => this.handleAssessment(e));
-        }
-        if (this.feedbackForm) {
-            this.feedbackForm.addEventListener('submit', (e) => this.handleFeedback(e));
-        }
-
-        // Rating Stars
-        this.stars.forEach(star => {
-            star.addEventListener('click', () => this.setRating(star.dataset.value));
-            star.addEventListener('mouseover', () => this.hoverRating(star.dataset.value));
-            star.addEventListener('mouseout', () => this.unhoverRating());
-        });
+        // Notice Letter Generator Events
+        const addNoticeDefectBtn = document.getElementById('addNoticeDefectBtn');
+        if (addNoticeDefectBtn) addNoticeDefectBtn.addEventListener('click', () => this.addNoticeDefectRow());
+        
+        const noticeForm = document.getElementById('noticeLetterForm');
+        if (noticeForm) noticeForm.addEventListener('submit', (e) => this.generateNoticeLetter(e));
 
         // Settings
         if (this.clearDataBtn) this.clearDataBtn.addEventListener('click', () => this.clearAllData());
         if (this.toggleThemeBtn) this.toggleThemeBtn.addEventListener('click', () => this.toggleTheme());
+
+        // --- AI Image Scanner Events ---
+        if (this.uploadArea) {
+            this.uploadArea.addEventListener('click', () => this.defectImage.click());
+            
+            this.uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                this.uploadArea.classList.add('dragover');
+            });
+            this.uploadArea.addEventListener('dragleave', () => this.uploadArea.classList.remove('dragover'));
+            this.uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                this.uploadArea.classList.remove('dragover');
+                if (e.dataTransfer.files.length) {
+                    this.defectImage.files = e.dataTransfer.files;
+                    this.handleImageUpload();
+                }
+            });
+            
+            this.defectImage.addEventListener('change', () => this.handleImageUpload());
+        }
+
+        if (this.removeImageBtn) this.removeImageBtn.addEventListener('click', () => this.removeScannerImage());
+        if (this.scanBtn) this.scanBtn.addEventListener('click', () => this.analyzeDefectImage());
+
+        // DLP Assessment Tools
+        const addDefectBtn = document.getElementById('addDefectBtn');
+        if (addDefectBtn) addDefectBtn.addEventListener('click', () => this.addDefectRow());
+        
+        const dlpForm = document.getElementById('dlpCalculatorForm');
+        if (dlpForm) dlpForm.addEventListener('submit', (e) => this.generateDlpReport(e));
+
+        // --- PDF Scanner Events ---
+        if (this.pdfUploadArea) {
+            this.pdfUploadArea.addEventListener('click', () => this.pdfFile.click());
+            
+            this.pdfUploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                this.pdfUploadArea.classList.add('dragover');
+            });
+            this.pdfUploadArea.addEventListener('dragleave', () => this.pdfUploadArea.classList.remove('dragover'));
+            this.pdfUploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                this.pdfUploadArea.classList.remove('dragover');
+                if (e.dataTransfer.files.length) {
+                    this.pdfFile.files = e.dataTransfer.files;
+                    this.handlePdfUpload();
+                }
+            });
+            
+            this.pdfFile.addEventListener('change', () => this.handlePdfUpload());
+        }
+
+        if (this.removePdfBtn) this.removePdfBtn.addEventListener('click', () => this.removePdf());
+        if (this.scanPdfBtn) this.scanPdfBtn.addEventListener('click', () => this.analyzePdf());
     }
 
     // ==========================================================
-    // 1. CONVERSATION MANAGEMENT (History, Save, Load)
+    // 1. CONVERSATION MANAGEMENT
     // ==========================================================
-
     loadSavedData() {
-        // Load Theme
         if (localStorage.getItem('theme') === 'light') {
             document.body.classList.add('light-mode');
         }
 
-        // Load Conversations
         const saved = localStorage.getItem('dlp_conversations');
         if (saved) {
             try {
@@ -123,7 +187,6 @@ cacheElements() {
             }
         }
 
-        // Open recent chat or create new
         if (this.conversations.length > 0) {
             this.loadChat(this.conversations[0].id);
         } else {
@@ -162,6 +225,10 @@ cacheElements() {
         chat.messages.forEach(msg => {
             this.renderMessageHTML(msg.text, msg.sender);
         });
+
+        if (this.welcomeScreen) {
+            this.welcomeScreen.style.display = chat.messages.length === 0 ? 'flex' : 'none';
+        }
         
         this.renderSidebarHistory();
     }
@@ -267,23 +334,17 @@ cacheElements() {
     // ==========================================================
     // 2. MESSAGING LOGIC
     // ==========================================================
-     async sendMessage() {
+    async sendMessage() {
         const text = this.userInput.value.trim();
         if (!text) return;
 
-        // Reset input height
         this.userInput.style.height = 'auto';
         this.userInput.value = '';
 
-        // 1. Show User Message
         this.addMessageToActiveChat(text, 'user', false);
-
-        // 2. Show Typing Indicator
         this.showTypingIndicator();
 
         try {
-            // FIX IS HERE: We interpret the URL directly as '/api/chat'
-            // We removed the ${endpoint} variable that was causing the error.
             const response = await fetch('/api/chat', { 
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -298,7 +359,6 @@ cacheElements() {
 
             const botReply = data.response || "I didn't understand that.";
 
-            // 3. Show Bot Message
             this.removeTypingIndicator();
             this.addMessageToActiveChat(botReply, 'bot', true);
 
@@ -308,27 +368,23 @@ cacheElements() {
             this.addMessageToActiveChat(`Error: ${error.message || "Connection failed"}`, 'bot', false);
         }
     }
-    /**
-     * Add message to data and UI
-     * @param {string} text - The message text
-     * @param {string} sender - 'user' or 'bot'
-     * @param {boolean} animate - Whether to use typewriter effect
-     */
+
     addMessageToActiveChat(text, sender, animate = false) {
         const chat = this.conversations.find(c => c.id === this.activeChatId);
         if (!chat) return;
 
-        // Save to memory
         chat.messages.push({ text, sender, timestamp: new Date() });
 
-        // Auto-title if new chat
         if (chat.messages.length === 1 && sender === 'user') {
             chat.title = text.substring(0, 30) + (text.length > 30 ? '...' : '');
         }
 
         this.saveData();
 
-        // Render to screen
+        if (this.welcomeScreen) {
+            this.welcomeScreen.style.display = 'none';
+        }
+
         if (animate && sender === 'bot') {
             this.renderMessageTypewriter(text);
         } else {
@@ -342,51 +398,35 @@ cacheElements() {
         this.scrollToBottom();
     }
 
-    /**
-     * Typewriter Render (Gradual)
-     */
     renderMessageTypewriter(text) {
-        // 1. Create the empty shell
-        const messageDiv = this.createMessageStructure('', 'bot'); // Empty text first
+        const messageDiv = this.createMessageStructure('', 'bot'); 
         const bubble = messageDiv.querySelector('.message-bubble');
         const readBtn = messageDiv.querySelector('.btn-read-aloud');
         
-        // Hide the speaker icon while typing
         if(readBtn) readBtn.classList.add('hidden');
-
         this.chatMessages.appendChild(messageDiv);
         
-        // 2. Start Typing Loop
         let i = 0;
-        const speed = 15; // Speed in ms (lower is faster)
+        const speed = 15; 
 
         const typeLoop = () => {
             if (i < text.length) {
                 bubble.textContent += text.charAt(i);
                 i++;
-                this.scrollToBottom(); // Keep scrolling as text grows
+                this.scrollToBottom(); 
                 setTimeout(typeLoop, speed);
             } else {
-                // Done typing: Show speaker button
                 if(readBtn) readBtn.classList.remove('hidden');
-                
-                // Re-attach the click listener for the speaker (since we just revealed it)
-                // Note: The listener is already attached in createMessageStructure, 
-                // we just need to update the text payload if needed, but here it's static.
             }
         };
 
         typeLoop();
     }
 
-    /**
-     * Helper to create the HTML structure
-     */
     createMessageStructure(text, sender) {
         const messageDiv = document.createElement('div');
         messageDiv.className = `chat-message ${sender}`;
 
-        // Avatar
         if (sender === 'bot') {
             const avatar = document.createElement('div');
             avatar.className = 'chat-avatar';
@@ -394,25 +434,19 @@ cacheElements() {
             messageDiv.appendChild(avatar);
         }
 
-        // Bubble
         const bubble = document.createElement('div');
         bubble.className = 'message-bubble';
         bubble.textContent = text;
         messageDiv.appendChild(bubble);
 
-        // Speaker Button
         if (sender === 'bot') {
             const readBtn = document.createElement('button');
             readBtn.className = 'btn-read-aloud';
             readBtn.innerHTML = '🔊';
             readBtn.title = "Read Aloud";
             
-            // Attach Speech Event (using the full text passed in initially)
-            // Note: For typewriter, the text variable here is empty initially, 
-            // so we need to ensure the click handler grabs the *current* text from the bubble.
             readBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                // Grab text dynamically from the bubble in case it was typed in later
                 const finalText = bubble.textContent; 
                 this.toggleSpeech(finalText, readBtn, messageDiv);
             });
@@ -422,8 +456,6 @@ cacheElements() {
 
         return messageDiv;
     }
-
-    // --- TYPING INDICATORS ---
 
     showTypingIndicator() {
         const div = document.createElement('div');
@@ -448,59 +480,428 @@ cacheElements() {
 
     scrollToBottom() {
         const chatContainer = this.chatMessages.parentElement;
-        chatContainer.scrollTop = chatContainer.scrollHeight;
-    }
-
-    // ==========================================================
-    // 3. ASSESSMENT & FORMS LOGIC (Restored)
-    // ==========================================================
-
-    async handleAssessment(e) {
-        e.preventDefault();
-        
-        // Basic data gathering
-        const formData = {
-            defect_type: document.getElementById('defectType').value,
-            reported_within: document.getElementById('reportedWithin').value,
-            severity: document.getElementById('severity').value,
-            repair_cost: document.getElementById('repairCost').value
-        };
-
-        // Simple mock response if backend isn't ready
-        // You can replace this with a real fetch call if your Python backend handles '/assess'
-        this.displayAssessmentResult({
-            defect_type: formData.defect_type,
-            liability_status: formData.reported_within === 'yes' ? 'Developer Likely Liable' : 'Owner Likely Liable',
-            recommendation: 'Please consult the specific clause in your SPA.',
-            severity: formData.severity
+        chatContainer.scrollTo({
+            top: chatContainer.scrollHeight,
+            behavior: 'smooth'
         });
     }
 
-    displayAssessmentResult(result) {
-        const html = `
-            <h3>Assessment Result</h3>
-            <p><strong>Defect Type:</strong> ${result.defect_type}</p>
-            <p><strong>Liability Status:</strong> ${result.liability_status}</p>
-            <p><strong>Recommendation:</strong> ${result.recommendation}</p>
-            <span class="result-status ${result.severity}">${result.severity.toUpperCase()}</span>
+   // ==========================================================
+    // 3. COMPREHENSIVE DLP ASSESSMENT TOOLS
+    // ==========================================================
+    
+    addDefectRow() {
+        const container = document.getElementById('defectItemsContainer');
+        const row = document.createElement('div');
+        row.className = 'form-group defect-row';
+        row.style.display = 'flex';
+        row.style.gap = '15px';
+        row.style.marginTop = '15px';
+        
+        row.innerHTML = `
+            <input type="text" class="defect-desc" placeholder="Defect Description" style="flex: 2;" required>
+            <input type="number" class="defect-cost" placeholder="Est. Cost (RM)" style="flex: 1;" min="0" required>
+            <button type="button" class="btn-secondary remove-defect-btn" style="padding: 0 15px; color: #ef4444; border-color: #ef4444;">X</button>
         `;
-        this.assessmentResult.innerHTML = html;
-        this.showNotification('Assessment Completed', 'success');
+        
+        // Add functionality to remove this specific row
+        row.querySelector('.remove-defect-btn').addEventListener('click', function() {
+            row.remove();
+        });
+        
+        container.appendChild(row);
     }
 
-    async handleFeedback(e) {
+    generateDlpReport(e) {
         e.preventDefault();
-        // Just a mock success for now
-        this.feedbackForm.reset();
-        this.selectedRating = 0;
-        this.updateStarDisplay();
-        this.showNotification('Feedback Submitted!', 'success');
+        
+        // Get Inputs
+        const vpDateInput = document.getElementById('vpDate').value;
+        const noticeDateInput = document.getElementById('noticeDate').value;
+        const purchasePrice = parseFloat(document.getElementById('purchasePrice').value);
+        
+        // 1. Calculate DLP Timeline (24 Months from VP)
+        const vpDate = new Date(vpDateInput);
+        const dlpEndDate = new Date(vpDate);
+        dlpEndDate.setMonth(dlpEndDate.getMonth() + 24);
+        
+        const today = new Date();
+        const timeDiff = dlpEndDate.getTime() - today.getTime();
+        const daysRemaining = Math.ceil(timeDiff / (1000 * 3600 * 24));
+        
+        let dlpStatus = "";
+        let dlpAdvice = "";
+        
+        if (daysRemaining < 0) {
+            dlpStatus = `<span style="color: #ef4444;">EXPIRED</span>`;
+            dlpAdvice = "Your official DLP has ended. You may need to rely on hidden defect laws (Latent Defects) or cover costs yourself.";
+        } else if (daysRemaining <= 30) {
+            dlpStatus = `<span style="color: #f59e0b;">EXPIRING SOON (${daysRemaining} Days Left)</span>`;
+            dlpAdvice = "Submit all remaining defect reports officially immediately before the deadline!";
+        } else {
+            dlpStatus = `<span style="color: var(--neon-green);">VALID (${daysRemaining} Days Left)</span>`;
+            dlpAdvice = "You are safely within the DLP. Keep documenting and submitting defects as they arise.";
+        }
+
+        // 2. Calculate 30-Day Repair Deadline
+        let deadlineHtml = "";
+        if (noticeDateInput) {
+            const noticeDate = new Date(noticeDateInput);
+            const deadlineDate = new Date(noticeDate);
+            deadlineDate.setDate(deadlineDate.getDate() + 30);
+            
+            const deadlineDiff = deadlineDate.getTime() - today.getTime();
+            const deadlineDays = Math.ceil(deadlineDiff / (1000 * 3600 * 24));
+            
+            if (deadlineDays < 0) {
+                deadlineHtml = `
+                    <p><strong>Developer Deadline:</strong> ${deadlineDate.toLocaleDateString()}</p>
+                    <p><strong>Status:</strong> <span style="color: #ef4444;">OVERDUE</span></p>
+                    <p><strong>Action:</strong> The 30 days have passed. Under Malaysian Law, you may now hire your own contractor, repair the defect, and deduct the cost from the stakeholder sum.</p>
+                `;
+            } else {
+                deadlineHtml = `
+                    <p><strong>Developer Deadline:</strong> ${deadlineDate.toLocaleDateString()}</p>
+                    <p><strong>Status:</strong> Pending (${deadlineDays} Days Left)</p>
+                    <p><strong>Action:</strong> Allow the developer to complete repairs within this timeframe.</p>
+                `;
+            }
+        } else {
+            deadlineHtml = `<p>No official notice date provided. Remember to send a formal written notice to start the 30-day clock.</p>`;
+        }
+
+        // 3. Calculate Stakeholder Retention Sum (5% of SPA Price)
+        const retentionSum = purchasePrice * 0.05;
+
+        // 4. Calculate Repair Cost Claim
+        let totalClaim = 0;
+        let defectListHtml = "<ul>";
+        const costInputs = document.querySelectorAll('.defect-cost');
+        const descInputs = document.querySelectorAll('.defect-desc');
+        
+        for(let i = 0; i < costInputs.length; i++) {
+            const cost = parseFloat(costInputs[i].value) || 0;
+            totalClaim += cost;
+            defectListHtml += `<li>${descInputs[i].value}: <strong>RM ${cost.toLocaleString()}</strong></li>`;
+        }
+        defectListHtml += "</ul>";
+
+        let tribunalWarning = "";
+        if (totalClaim > 50000) {
+            tribunalWarning = `
+                <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; padding: 10px; border-radius: 8px; margin-top: 10px;">
+                    <strong style="color: #ef4444;">⚠️ TRIBUNAL LIMIT EXCEEDED</strong><br>
+                    Your estimated claim is <strong>RM ${totalClaim.toLocaleString()}</strong>. The maximum claim allowed in the Tribunal for Homebuyer Claims (TTPR) is RM 50,000. You may need to waive the excess amount or file your case in a civil court.
+                </div>
+            `;
+        }
+
+        // 5. Generate Combined HTML Report
+        const reportArea = document.getElementById('assessmentReportArea');
+        
+        reportArea.innerHTML = `
+            <div style="text-align: center; border-bottom: 1px solid var(--border-dim); padding-bottom: 20px; margin-bottom: 20px;">
+                <h2 style="color: var(--text-primary); margin: 0;">Comprehensive DLP Report</h2>
+                <p style="color: var(--neon-green); margin-top: 5px;">Generated on ${today.toLocaleDateString()}</p>
+            </div>
+
+            <h3>📅 1. Timeline Analysis</h3>
+            <p><strong>VP Date:</strong> ${vpDate.toLocaleDateString()}</p>
+            <p><strong>DLP Expiry Date:</strong> ${dlpEndDate.toLocaleDateString()}</p>
+            <p><strong>Current Status:</strong> ${dlpStatus}</p>
+            <p><strong>Legal Advice:</strong> ${dlpAdvice}</p>
+
+            <h3>⏳ 2. Developer Action Deadline</h3>
+            ${deadlineHtml}
+
+            <h3>💰 3. Stakeholder Retention Funds</h3>
+            <p>Based on your SPA price of RM ${purchasePrice.toLocaleString()}, the stakeholder lawyer is holding a 5% retention sum.</p>
+            <p><strong>Total Retention Sum:</strong> <span style="color: var(--neon-green); font-weight: bold; font-size: 1.1em;">RM ${retentionSum.toLocaleString()}</span></p>
+            <p>If the developer fails to repair defects within 30 days of notice, you have the legal right to claim your repair costs from this specific fund.</p>
+
+            <h3>🛠️ 4. Claim Estimation</h3>
+            <p>Your logged defects and estimated costs:</p>
+            ${defectListHtml}
+            <p style="font-size: 1.2em; margin-top: 10px;"><strong>Total Estimated Claim:</strong> RM ${totalClaim.toLocaleString()}</p>
+            ${tribunalWarning}
+            
+            <div style="margin-top: 30px; text-align: center;">
+                <button class="btn-secondary" onclick="window.print()" style="width: 100%;">🖨️ Print / Save as PDF</button>
+            </div>
+        `;
+
+        reportArea.style.display = 'block';
+        
+        // Scroll smoothly to the report
+        reportArea.scrollIntoView({ behavior: 'smooth' });
+        
+        if (this.showNotification) {
+            this.showNotification('Report Generated Successfully!', 'success');
+        }
     }
 
     // ==========================================================
-    // 4. UTILITIES (Tabs, Theme, Ratings, Notifications)
+    // 3. FORMAL NOTICE LETTER GENERATOR
     // ==========================================================
+    
+    addNoticeDefectRow() {
+        const container = document.getElementById('noticeDefectsContainer');
+        const row = document.createElement('div');
+        row.className = 'form-group defect-notice-row';
+        row.style.display = 'flex';
+        row.style.gap = '15px';
+        row.style.marginTop = '15px';
+        
+        row.innerHTML = `
+            <input type="text" class="nl-defect-location" placeholder="Location" style="flex: 1;" required>
+            <input type="text" class="nl-defect-desc" placeholder="Issue" style="flex: 2;" required>
+            <button type="button" class="btn-secondary remove-nl-defect-btn" style="padding: 0 15px; color: #ef4444; border-color: #ef4444;">X</button>
+        `;
+        
+        row.querySelector('.remove-nl-defect-btn').addEventListener('click', function() {
+            row.remove();
+        });
+        
+        container.appendChild(row);
+    }
 
+    generateNoticeLetter(e) {
+        e.preventDefault();
+        
+        // 1. Gather all inputs
+        const buyerName = document.getElementById('nlBuyerName').value.trim();
+        const buyerIC = document.getElementById('nlBuyerIC').value.trim();
+        const buyerAddress = document.getElementById('nlBuyerAddress').value.replace(/\n/g, '<br>');
+        const buyerContact = document.getElementById('nlBuyerContact').value.trim();
+        
+        const devName = document.getElementById('nlDevName').value.trim();
+        const devAddress = document.getElementById('nlDevAddress').value.replace(/\n/g, '<br>');
+        
+        const projectName = document.getElementById('nlProjectName').value.trim();
+        const unitNo = document.getElementById('nlUnitNo').value.trim();
+        const vpDate = new Date(document.getElementById('nlVPDate').value).toLocaleDateString();
+        const spaRef = document.getElementById('nlSPARef').value.trim();
+
+        // 2. Format today's date
+        const today = new Date().toLocaleDateString('en-GB', {
+            day: 'numeric', month: 'long', year: 'numeric'
+        });
+
+        // 3. Compile the defects list
+        const locations = document.querySelectorAll('.nl-defect-location');
+        const descs = document.querySelectorAll('.nl-defect-desc');
+        let defectListHTML = "<ol style='margin-left: 20px; margin-bottom: 20px;'>";
+        
+        for(let i = 0; i < locations.length; i++) {
+            defectListHTML += `<li><strong>${locations[i].value}:</strong> ${descs[i].value}</li>`;
+        }
+        defectListHTML += "</ol>";
+
+        // 4. Construct the Legal Letter HTML
+        // Note: We use a serif font and minimal styling here so it looks like a real printed document.
+        const letterHTML = `
+            <div style="margin-bottom: 40px;">
+                <strong>${buyerName.toUpperCase()}</strong><br>
+                ${buyerAddress}
+            </div>
+
+            <div style="margin-bottom: 20px;">
+                <strong>Date:</strong> ${today}
+            </div>
+
+            <div style="margin-bottom: 30px;">
+                <strong>TO:</strong><br>
+                <strong>${devName.toUpperCase()}</strong><br>
+                ${devAddress}
+            </div>
+
+            <div style="margin-bottom: 20px; text-decoration: underline; font-weight: bold;">
+                RE: NOTICE OF DEFECTS AND REQUEST FOR RECTIFICATION UNDER THE DEFECT LIABILITY PERIOD
+            </div>
+
+            <table style="margin-bottom: 30px; font-weight: bold; text-align: left;">
+                <tr><td style="padding-right: 20px;">PROPERTY</td><td>: ${unitNo}, ${projectName}</td></tr>
+                <tr><td>SPA REF/DATE</td><td>: ${spaRef}</td></tr>
+                <tr><td>DATE OF VP</td><td>: ${vpDate}</td></tr>
+            </table>
+
+            <p style="margin-bottom: 15px;">Dear Sir/Madam,</p>
+
+            <p style="margin-bottom: 15px; text-align: justify;">
+                I/We, the purchaser(s) of the above-mentioned property, write to formally notify you of defects, shrinkage, or other faults in the property which have become apparent within the Defect Liability Period, in accordance with the Housing Development (Control and Licensing) Act 1966 and the Sale and Purchase Agreement (SPA).
+            </p>
+
+            <p style="margin-bottom: 15px;">Please find below the schedule of defects requiring immediate rectification:</p>
+
+            ${defectListHTML}
+
+            <p style="margin-bottom: 15px; text-align: justify;">
+                Kindly arrange for your representatives or contractors to inspect the property and carry out the necessary rectification works within <strong>thirty (30) days</strong> from the date of this notice.
+            </p>
+
+            <p style="margin-bottom: 15px; text-align: justify;">
+                Please be reminded that in the event you fail to rectify the said defects within the stipulated thirty (30) days, I/we reserve the right to carry out the rectification works ourselves and recover the costs from the stakeholder holding the retention sum, as provided under the SPA.
+            </p>
+
+            <p style="margin-bottom: 40px;">
+                We look forward to your prompt response and action. Please contact me at <strong>${buyerContact}</strong> to arrange an appointment for inspection.
+            </p>
+
+            <p style="margin-bottom: 60px;">Yours faithfully,</p>
+
+            <p style="margin-bottom: 5px;">______________________________</p>
+            <p style="margin-bottom: 2px;"><strong>${buyerName.toUpperCase()}</strong></p>
+            <p>NRIC / Passport: ${buyerIC}</p>
+
+            <hr style="margin-top: 50px; margin-bottom: 20px; border: 0; border-top: 1px solid var(--border-dim);">
+            
+            <p style="font-family: 'Inter', sans-serif; font-size: 12px; color: #ef4444; text-align: center;">
+                <em><strong>Disclaimer:</strong> This is an auto-generated template provided for general reference only and does not constitute legal advice. Please ensure all details are correct before sending. Consult a qualified legal professional if you require specific legal assistance.</em>
+            </p>
+        `;
+
+        // 5. Inject and display the letter
+        document.getElementById('letterContent').innerHTML = letterHTML;
+        document.getElementById('noticeLetterOutputArea').style.display = 'block';
+        
+        // Scroll smoothly to the generated letter
+        document.getElementById('noticeLetterOutputArea').scrollIntoView({ behavior: 'smooth' });
+        
+        if (this.showNotification) {
+            this.showNotification('Formal Notice Generated Successfully!', 'success');
+        }
+    }
+
+    // ==========================================================
+    // 4. AI IMAGE SCANNER LOGIC
+    // ==========================================================
+    handleImageUpload() {
+        const file = this.defectImage.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                this.currentBase64Image = e.target.result;
+                this.imagePreview.src = this.currentBase64Image;
+                this.uploadArea.style.display = 'none';
+                this.previewArea.style.display = 'block';
+                this.scanResult.style.display = 'none'; 
+            };
+            reader.readAsDataURL(file);
+        }
+    }
+
+    removeScannerImage() {
+        this.defectImage.value = '';
+        this.currentBase64Image = null;
+        this.previewArea.style.display = 'none';
+        this.scanResult.style.display = 'none';
+        this.uploadArea.style.display = 'block';
+    }
+
+    async analyzeDefectImage() {
+        if (!this.currentBase64Image) return;
+
+        this.scanBtn.style.display = 'none';
+        this.removeImageBtn.style.display = 'none';
+        this.loadingIndicator.style.display = 'block';
+        this.scanResult.style.display = 'none';
+
+        try {
+            const response = await fetch('/api/analyze-image', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image: this.currentBase64Image })
+            });
+            
+            const data = await response.json();
+            
+            if(data.error) {
+                this.scanResult.innerHTML = `<span style="color:#ef4444;">Error: ${data.error}</span>`;
+            } else {
+                let formattedText = data.response;
+                formattedText = formattedText.replace(/^### (.*$)/gim, '<h3>$1</h3>');
+                formattedText = formattedText.replace(/^## (.*$)/gim, '<h3>$1</h3>');
+                formattedText = formattedText.replace(/\*\*(.*?)\*\*/gim, '<strong>$1</strong>');
+                formattedText = formattedText.replace(/\n/gim, '<br>');
+                
+                this.scanResult.innerHTML = formattedText;
+            }
+        } catch (err) {
+            this.scanResult.innerHTML = `<span style="color:#ef4444;">Connection Error: ${err.message}</span>`;
+        } finally {
+            this.loadingIndicator.style.display = 'none';
+            this.scanBtn.style.display = 'inline-block';
+            this.removeImageBtn.style.display = 'inline-block';
+            this.scanResult.style.display = 'block';
+        }
+    }
+
+    // ==========================================================
+    // 5. PDF SCANNER LOGIC
+    // ==========================================================
+    handlePdfUpload() {
+        const file = this.pdfFile.files[0];
+        if (file && file.type === "application/pdf") {
+            this.pdfFileName.textContent = file.name;
+            this.pdfUploadArea.style.display = 'none';
+            this.pdfPreviewArea.style.display = 'block';
+            this.pdfScanResult.style.display = 'none'; 
+        } else {
+            alert("Please upload a valid PDF file.");
+        }
+    }
+
+    removePdf() {
+        this.pdfFile.value = '';
+        this.pdfPreviewArea.style.display = 'none';
+        this.pdfScanResult.style.display = 'none';
+        this.pdfUploadArea.style.display = 'block';
+    }
+
+    async analyzePdf() {
+        const file = this.pdfFile.files[0];
+        if (!file) return;
+
+        this.scanPdfBtn.style.display = 'none';
+        this.removePdfBtn.style.display = 'none';
+        this.pdfLoadingIndicator.style.display = 'block';
+        this.pdfScanResult.style.display = 'none';
+
+        const formData = new FormData();
+        formData.append("pdf", file);
+
+        try {
+            const response = await fetch('/api/analyze-pdf', {
+                method: 'POST',
+                body: formData 
+            });
+            
+            const data = await response.json();
+            
+            if(data.error) {
+                this.pdfScanResult.innerHTML = `<span style="color:#ef4444;">Error: ${data.error}</span>`;
+            } else {
+                let formattedText = data.response;
+                formattedText = formattedText.replace(/^### (.*$)/gim, '<h3>$1</h3>');
+                formattedText = formattedText.replace(/^## (.*$)/gim, '<h3>$1</h3>');
+                formattedText = formattedText.replace(/\*\*(.*?)\*\*/gim, '<strong>$1</strong>');
+                formattedText = formattedText.replace(/\n/gim, '<br>');
+                
+                this.pdfScanResult.innerHTML = formattedText;
+            }
+        } catch (err) {
+            this.pdfScanResult.innerHTML = `<span style="color:#ef4444;">Connection Error: ${err.message}</span>`;
+        } finally {
+            this.pdfLoadingIndicator.style.display = 'none';
+            this.scanPdfBtn.style.display = 'inline-block';
+            this.removePdfBtn.style.display = 'inline-block';
+            this.pdfScanResult.style.display = 'block';
+        }
+    }
+
+    // ==========================================================
+    // 6. UTILITIES & SPEECH SYNTHESIS
+    // ==========================================================
     switchTab(tabName) {
         this.stopSpeaking();
         this.navTabs.forEach(tab => tab.classList.remove('active'));
@@ -511,12 +912,8 @@ cacheElements() {
         const activeContent = document.getElementById(tabName);
         if(activeContent) activeContent.classList.add('active');
 
-        // Scroll to bottom if opening chat
         if (tabName === 'chat') {
-            const chatContainer = document.querySelector('.chat-container');
-            if(chatContainer) {
-                setTimeout(() => chatContainer.scrollTop = chatContainer.scrollHeight, 50);
-            }
+            setTimeout(() => this.scrollToBottom(), 50);
         }
     }
 
@@ -543,20 +940,22 @@ cacheElements() {
         }, 3000);
     }
 
-    // Rating Logic
     setRating(value) {
         this.selectedRating = parseInt(value);
         if(this.ratingInput) this.ratingInput.value = this.selectedRating;
         this.updateStarDisplay();
     }
+
     hoverRating(value) {
         this.stars.forEach((star, index) => {
             star.style.color = index < value ? 'var(--accent-color)' : 'var(--text-muted)';
         });
     }
+
     unhoverRating() {
         this.updateStarDisplay();
     }
+
     updateStarDisplay() {
         this.stars.forEach((star, index) => {
             if (index < this.selectedRating) {
@@ -569,22 +968,17 @@ cacheElements() {
         });
     }
 
-    /**
-     * Stop any currently playing speech
-     */
     stopSpeaking() {
         if (window.speechSynthesis.speaking || window.speechSynthesis.pending) {
             window.speechSynthesis.cancel();
         }
         
-        // Reset all icons back to speaker
         document.querySelectorAll('.btn-read-aloud').forEach(btn => {
             btn.textContent = '🔊';
             btn.classList.remove('speaking');
             btn.title = "Read Aloud";
         });
 
-        // Remove highlight from bubbles
         document.querySelectorAll('.chat-message').forEach(msg => {
             msg.classList.remove('reading');
         });
@@ -592,35 +986,24 @@ cacheElements() {
         this.currentUtterance = null;
     }
 
-    /**
-     * Toggle Text-to-Speech
-     */
     toggleSpeech(text, btn, messageDiv) {
-        // If this specific message is already speaking, stop it.
         if (this.currentUtterance && btn.classList.contains('speaking')) {
             this.stopSpeaking();
             return;
         }
 
-        // If something else is speaking, stop it first.
         this.stopSpeaking();
 
-        // Create new speech utterance
         const utterance = new SpeechSynthesisUtterance(text);
-        
-        // Optional: Select a voice (usually the default is fine, but you can customize)
-        // const voices = window.speechSynthesis.getVoices();
-        // utterance.voice = voices.find(voice => voice.lang.includes('en')) || null;
 
-        // Events
         utterance.onstart = () => {
-            btn.textContent = '⏹️'; // Switch to Stop icon
+            btn.textContent = '⏹️'; 
             btn.classList.add('speaking');
             messageDiv.classList.add('reading');
         };
 
         utterance.onend = () => {
-            this.stopSpeaking(); // Reset icons when done
+            this.stopSpeaking(); 
         };
 
         utterance.onerror = (e) => {
