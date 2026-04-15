@@ -253,3 +253,17 @@ def api_analyze_pdf():
     except Exception as e:
         print(f"PDF ROUTE ERROR: {e}")
         return jsonify({"error": f"Server Error: {str(e)}"}), 500
+
+@module1.route('/feedback', methods=['POST'])
+def api_feedback():
+    try:
+        data = request.json
+        feedback_text = data.get('feedback')
+        rating = data.get('rating', 0) # Just in case you want to save the star rating too!
+        
+        save_feedback(feedback_text)
+        return jsonify({"status": "Feedback saved successfully!"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+        
