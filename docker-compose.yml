@@ -8,7 +8,7 @@ services:
     working_dir: /usr/src/app  # Add this line
     environment:
       - PYTHONPATH=/usr/src/app
-      - FLASK_APP=app:app  # Assuming your Flask app instance is named 'app' in app/__init__.py
+      - FLASK_APP=app.start_chatbot:app # Assuming your Flask app instance is named 'app' in app/__init__.py
       - FLASK_ENV=development
     volumes:
       - ./:/usr/src/app    # mount project root so /usr/src/app/app is the package
@@ -17,13 +17,13 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     
-    command: ["conda", "run", "--no-capture-output", "-n", "pcd", "flask", "run", "--host=0.0.0.0", "--port=5000", "--reload"]
+    command: ["conda", "run", "--no-capture-output", "-n", "base", "flask", "run", "--host=0.0.0.0", "--port=5000", "--reload"]
     restart: unless-stopped
     depends_on:
       - flask_db  # If you have a database service, you can define it here as a dependency (optional)
 
   flask_db:
-    image: postgres:latest  # Example for adding a PostgreSQL database service
+    image: postgres:16 # Example for adding a PostgreSQL database service
     container_name: flask_db
     environment:
       POSTGRES_USER: user

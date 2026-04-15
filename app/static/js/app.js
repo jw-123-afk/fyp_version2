@@ -1,11 +1,9 @@
 /**
- * DLP Chatbot - Main Application Logic
- * Includes: Chat History, Assessment, Guidelines, Feedback, AI Scanner, PDF Scanner, & Welcome Screen
+ * DLP Chatbot - Main Application Logic (Multi-Threaded Upgrade)
  */
 
 class DLPChatbotApp {
     constructor() {
-        // Core State
         this.conversations = [];
         this.activeChatId = null;
         this.apiBaseUrl = '/api';
@@ -23,22 +21,18 @@ class DLPChatbotApp {
     }
 
     cacheElements() {
-        // Navigation & Sidebar
         this.navTabs = document.querySelectorAll('.nav-tab');
         this.tabContents = document.querySelectorAll('.tab-content');
         this.conversationListEl = document.getElementById('conversationList');
         this.newChatBtn = document.getElementById('newChatBtn');
         
-        // Chat Area
         this.userInput = document.getElementById('userInput');
         this.sendBtn = document.getElementById('sendBtn');
         this.chatMessages = document.getElementById('chatMessages');
         this.welcomeScreen = document.getElementById('welcomeScreen');
 
-        // Guidelines Area
         this.backToChatBtn = document.getElementById('backToChatBtn');
 
-        // Forms
         this.assessmentForm = document.getElementById('assessmentForm');
         this.assessmentResult = document.getElementById('assessmentResult');
         this.feedbackForm = document.getElementById('feedbackForm');
@@ -46,12 +40,10 @@ class DLPChatbotApp {
         this.stars = document.querySelectorAll('.star');
         this.ratingInput = document.getElementById('rating');
 
-        // General UI
         this.clearDataBtn = document.getElementById('clearAllData');
         this.toggleThemeBtn = document.getElementById('toggleTheme');
         this.notification = document.getElementById('notification');
 
-        // AI Image Scanner Area
         this.uploadArea = document.getElementById('uploadArea');
         this.defectImage = document.getElementById('defectImage');
         this.previewArea = document.getElementById('previewArea');
@@ -61,7 +53,6 @@ class DLPChatbotApp {
         this.loadingIndicator = document.getElementById('loadingIndicator');
         this.scanResult = document.getElementById('scanResult');
 
-        // PDF Scanner Area
         this.pdfUploadArea = document.getElementById('pdfUploadArea');
         this.pdfFile = document.getElementById('pdfFile');
         this.pdfPreviewArea = document.getElementById('pdfPreviewArea');
@@ -73,16 +64,13 @@ class DLPChatbotApp {
     }
 
     attachEventListeners() {
-        // Navigation
         this.navTabs.forEach(tab => {
             tab.addEventListener('click', (e) => this.switchTab(e.target.dataset.tab));
         });
 
-        // Chat Actions
         if(this.newChatBtn) this.newChatBtn.addEventListener('click', () => this.startNewChat());
         if(this.sendBtn) this.sendBtn.addEventListener('click', () => this.sendMessage());
 
-        // Enter Key to Send
         if(this.userInput) {
             this.userInput.addEventListener('keypress', (e) => {
                 if (e.key === 'Enter' && !e.shiftKey) { 
@@ -91,7 +79,6 @@ class DLPChatbotApp {
                 }
             });
 
-            // Auto-resize Textarea
             this.userInput.addEventListener('input', function() {
                 this.style.height = 'auto';
                 this.style.height = (this.scrollHeight) + 'px';
@@ -102,18 +89,15 @@ class DLPChatbotApp {
             this.backToChatBtn.addEventListener('click', () => this.switchTab('chat'));
         }
 
-        // Notice Letter Generator Events
         const addNoticeDefectBtn = document.getElementById('addNoticeDefectBtn');
         if (addNoticeDefectBtn) addNoticeDefectBtn.addEventListener('click', () => this.addNoticeDefectRow());
         
         const noticeForm = document.getElementById('noticeLetterForm');
         if (noticeForm) noticeForm.addEventListener('submit', (e) => this.generateNoticeLetter(e));
 
-        // Settings
         if (this.clearDataBtn) this.clearDataBtn.addEventListener('click', () => this.clearAllData());
         if (this.toggleThemeBtn) this.toggleThemeBtn.addEventListener('click', () => this.toggleTheme());
 
-        // --- AI Image Scanner Events ---
         if (this.uploadArea) {
             this.uploadArea.addEventListener('click', () => this.defectImage.click());
             
@@ -137,14 +121,12 @@ class DLPChatbotApp {
         if (this.removeImageBtn) this.removeImageBtn.addEventListener('click', () => this.removeScannerImage());
         if (this.scanBtn) this.scanBtn.addEventListener('click', () => this.analyzeDefectImage());
 
-        // DLP Assessment Tools
         const addDefectBtn = document.getElementById('addDefectBtn');
         if (addDefectBtn) addDefectBtn.addEventListener('click', () => this.addDefectRow());
         
         const dlpForm = document.getElementById('dlpCalculatorForm');
         if (dlpForm) dlpForm.addEventListener('submit', (e) => this.generateDlpReport(e));
 
-        // --- PDF Scanner Events ---
         if (this.pdfUploadArea) {
             this.pdfUploadArea.addEventListener('click', () => this.pdfFile.click());
             
@@ -170,46 +152,59 @@ class DLPChatbotApp {
     }
 
     // ==========================================================
-    // 1. CONVERSATION MANAGEMENT
+    // 1. SECURE DATABASE CONVERSATION MANAGEMENT
     // ==========================================================
-    loadSavedData() {
-        if (localStorage.getItem('theme') === 'light') {
-            document.body.classList.add('light-mode');
-        }
+    async loadSavedData() {
+        if (localStorage.getItem('theme') === 'light') document.body.classList.add('light-mode');
+        localStorage.removeItem('dlp_conversations'); // Clear old ghost data
 
-        const saved = localStorage.getItem('dlp_conversations');
-        if (saved) {
-            try {
-                this.conversations = JSON.parse(saved);
-            } catch (e) {
-                console.error("Error loading history", e);
-                this.conversations = [];
+        try {
+            const response = await fetch('/api/history');
+            if (response.status === 401) return;
+            
+            const data = await response.json();
+            
+            if (data.history && data.history.length > 0) {
+                const groups = {};
+                data.history.forEach(msg => {
+                    const chatId = msg.chat_id || 'legacy_chat';
+                    if (!groups[chatId]) {
+                        groups[chatId] = { id: chatId, title: "New Chat", messages: [] };
+                    }
+                    groups[chatId].messages.push(msg);
+                });
+
+                this.conversations = Object.values(groups).map(chat => {
+                    const firstUserMsg = chat.messages.find(m => m.sender === 'user');
+                    if (firstUserMsg) {
+                        chat.title = firstUserMsg.text.substring(0, 25) + (firstUserMsg.text.length > 25 ? '...' : '');
+                    }
+                    return chat;
+                });
+
+                this.conversations.sort((a, b) => b.id - a.id);
+                this.loadChat(this.conversations[0].id);
+            } else {
+                this.startNewChat();
             }
-        }
-
-        if (this.conversations.length > 0) {
-            this.loadChat(this.conversations[0].id);
-        } else {
+            this.renderSidebarHistory();
+        } catch (error) {
+            console.error("Error fetching history:", error);
             this.startNewChat();
         }
-        
-        this.renderSidebarHistory();
     }
 
     saveData() {
-        localStorage.setItem('dlp_conversations', JSON.stringify(this.conversations));
         this.renderSidebarHistory();
     }
 
     startNewChat() {
-        const newChatId = Date.now();
-        const newChat = {
+        const newChatId = Date.now().toString(); 
+        this.conversations.unshift({
             id: newChatId,
             title: "New Chat",
             messages: []
-        };
-
-        this.conversations.unshift(newChat);
+        });
         this.loadChat(newChatId);
         this.saveData();
         this.switchTab('chat');
@@ -229,7 +224,6 @@ class DLPChatbotApp {
         if (this.welcomeScreen) {
             this.welcomeScreen.style.display = chat.messages.length === 0 ? 'flex' : 'none';
         }
-        
         this.renderSidebarHistory();
     }
 
@@ -250,19 +244,9 @@ class DLPChatbotApp {
             const titleSpan = document.createElement('span');
             titleSpan.className = 'history-title-text';
             titleSpan.textContent = chat.title || 'New Chat';
-            titleSpan.addEventListener('dblclick', () => this.enableRenaming(chat.id, titleSpan));
 
             const actionsDiv = document.createElement('div');
             actionsDiv.className = 'history-actions';
-
-            const editBtn = document.createElement('button');
-            editBtn.className = 'btn-icon-action';
-            editBtn.innerHTML = '✏️';
-            editBtn.title = "Rename Chat";
-            editBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                this.enableRenaming(chat.id, titleSpan);
-            });
 
             const deleteBtn = document.createElement('button');
             deleteBtn.className = 'btn-icon-action btn-delete';
@@ -270,10 +254,9 @@ class DLPChatbotApp {
             deleteBtn.title = "Delete Chat";
             deleteBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                this.deleteChat(chat.id);
+                this.deleteChat(chat.id); 
             });
 
-            actionsDiv.appendChild(editBtn);
             actionsDiv.appendChild(deleteBtn);
             row.appendChild(titleSpan);
             row.appendChild(actionsDiv);
@@ -281,58 +264,34 @@ class DLPChatbotApp {
         });
     }
 
-    deleteChat(chatId) {
-        if (!confirm('Are you sure you want to delete this conversation?')) return;
-        this.conversations = this.conversations.filter(c => c.id !== chatId);
-        
-        if (chatId === this.activeChatId) {
-            if (this.conversations.length > 0) {
-                this.loadChat(this.conversations[0].id);
+    async deleteChat(chatId) {
+        if (!confirm('Are you sure you want to delete this specific conversation?')) return;
+
+        try {
+            const response = await fetch(`/api/delete-chat/${chatId}`, { method: 'DELETE' });
+            const data = await response.json();
+
+            if (data.success) {
+                this.conversations = this.conversations.filter(c => c.id !== chatId);
+                if (chatId === this.activeChatId) {
+                    if (this.conversations.length > 0) {
+                        this.loadChat(this.conversations[0].id);
+                    } else {
+                        this.startNewChat();
+                    }
+                } else {
+                    this.renderSidebarHistory();
+                }
             } else {
-                this.startNewChat();
-                return;
+                alert("Could not delete chat. " + data.error);
             }
-        }
-        this.saveData();
-    }
-
-    enableRenaming(chatId, titleElement) {
-        const currentTitle = titleElement.textContent;
-        const input = document.createElement('input');
-        input.type = 'text';
-        input.className = 'history-rename-input';
-        input.value = currentTitle;
-        
-        const save = () => {
-            const newTitle = input.value.trim();
-            if (newTitle) {
-                this.updateChatTitle(chatId, newTitle);
-            } else {
-                this.renderSidebarHistory();
-            }
-        };
-
-        input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') input.blur();
-            if (e.key === 'Escape') this.renderSidebarHistory();
-        });
-        input.addEventListener('blur', save);
-
-        titleElement.innerHTML = '';
-        titleElement.appendChild(input);
-        input.focus();
-    }
-
-    updateChatTitle(chatId, newTitle) {
-        const chat = this.conversations.find(c => c.id === chatId);
-        if (chat) {
-            chat.title = newTitle;
-            this.saveData();
+        } catch (e) {
+            console.error("Error deleting chat", e);
         }
     }
 
     // ==========================================================
-    // 2. MESSAGING LOGIC
+    // 2. MESSAGING LOGIC & HELPER FUNCTIONS
     // ==========================================================
     async sendMessage() {
         const text = this.userInput.value.trim();
@@ -348,19 +307,18 @@ class DLPChatbotApp {
             const response = await fetch('/api/chat', { 
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: text })
+                body: JSON.stringify({ 
+                    message: text,
+                    chat_id: this.activeChatId ? this.activeChatId.toString() : Date.now().toString()
+                })
             });
 
             const data = await response.json();
             
-            if (data.error) {
-                throw new Error(data.error);
-            }
-
-            const botReply = data.response || "I didn't understand that.";
+            if (data.error) throw new Error(data.error);
 
             this.removeTypingIndicator();
-            this.addMessageToActiveChat(botReply, 'bot', true);
+            this.addMessageToActiveChat(data.response || "I didn't understand that.", 'bot', true);
 
         } catch (error) {
             console.error('Chat error:', error);
@@ -376,7 +334,7 @@ class DLPChatbotApp {
         chat.messages.push({ text, sender, timestamp: new Date() });
 
         if (chat.messages.length === 1 && sender === 'user') {
-            chat.title = text.substring(0, 30) + (text.length > 30 ? '...' : '');
+            chat.title = text.substring(0, 25) + (text.length > 25 ? '...' : '');
         }
 
         this.saveData();
@@ -486,7 +444,7 @@ class DLPChatbotApp {
         });
     }
 
-   // ==========================================================
+    // ==========================================================
     // 3. COMPREHENSIVE DLP ASSESSMENT TOOLS
     // ==========================================================
     
@@ -504,7 +462,6 @@ class DLPChatbotApp {
             <button type="button" class="btn-secondary remove-defect-btn" style="padding: 0 15px; color: #ef4444; border-color: #ef4444;">X</button>
         `;
         
-        // Add functionality to remove this specific row
         row.querySelector('.remove-defect-btn').addEventListener('click', function() {
             row.remove();
         });
@@ -515,12 +472,10 @@ class DLPChatbotApp {
     generateDlpReport(e) {
         e.preventDefault();
         
-        // Get Inputs
         const vpDateInput = document.getElementById('vpDate').value;
         const noticeDateInput = document.getElementById('noticeDate').value;
         const purchasePrice = parseFloat(document.getElementById('purchasePrice').value);
         
-        // 1. Calculate DLP Timeline (24 Months from VP)
         const vpDate = new Date(vpDateInput);
         const dlpEndDate = new Date(vpDate);
         dlpEndDate.setMonth(dlpEndDate.getMonth() + 24);
@@ -543,7 +498,6 @@ class DLPChatbotApp {
             dlpAdvice = "You are safely within the DLP. Keep documenting and submitting defects as they arise.";
         }
 
-        // 2. Calculate 30-Day Repair Deadline
         let deadlineHtml = "";
         if (noticeDateInput) {
             const noticeDate = new Date(noticeDateInput);
@@ -570,10 +524,8 @@ class DLPChatbotApp {
             deadlineHtml = `<p>No official notice date provided. Remember to send a formal written notice to start the 30-day clock.</p>`;
         }
 
-        // 3. Calculate Stakeholder Retention Sum (5% of SPA Price)
         const retentionSum = purchasePrice * 0.05;
 
-        // 4. Calculate Repair Cost Claim
         let totalClaim = 0;
         let defectListHtml = "<ul>";
         const costInputs = document.querySelectorAll('.defect-cost');
@@ -596,7 +548,6 @@ class DLPChatbotApp {
             `;
         }
 
-        // 5. Generate Combined HTML Report
         const reportArea = document.getElementById('assessmentReportArea');
         
         reportArea.innerHTML = `
@@ -631,8 +582,6 @@ class DLPChatbotApp {
         `;
 
         reportArea.style.display = 'block';
-        
-        // Scroll smoothly to the report
         reportArea.scrollIntoView({ behavior: 'smooth' });
         
         if (this.showNotification) {
@@ -641,9 +590,8 @@ class DLPChatbotApp {
     }
 
     // ==========================================================
-    // 3. FORMAL NOTICE LETTER GENERATOR
+    // 4. FORMAL NOTICE LETTER GENERATOR
     // ==========================================================
-    
     addNoticeDefectRow() {
         const container = document.getElementById('noticeDefectsContainer');
         const row = document.createElement('div');
@@ -668,7 +616,6 @@ class DLPChatbotApp {
     generateNoticeLetter(e) {
         e.preventDefault();
         
-        // 1. Gather all inputs
         const buyerName = document.getElementById('nlBuyerName').value.trim();
         const buyerIC = document.getElementById('nlBuyerIC').value.trim();
         const buyerAddress = document.getElementById('nlBuyerAddress').value.replace(/\n/g, '<br>');
@@ -682,12 +629,10 @@ class DLPChatbotApp {
         const vpDate = new Date(document.getElementById('nlVPDate').value).toLocaleDateString();
         const spaRef = document.getElementById('nlSPARef').value.trim();
 
-        // 2. Format today's date
         const today = new Date().toLocaleDateString('en-GB', {
             day: 'numeric', month: 'long', year: 'numeric'
         });
 
-        // 3. Compile the defects list
         const locations = document.querySelectorAll('.nl-defect-location');
         const descs = document.querySelectorAll('.nl-defect-desc');
         let defectListHTML = "<ol style='margin-left: 20px; margin-bottom: 20px;'>";
@@ -697,8 +642,6 @@ class DLPChatbotApp {
         }
         defectListHTML += "</ol>";
 
-        // 4. Construct the Legal Letter HTML
-        // Note: We use a serif font and minimal styling here so it looks like a real printed document.
         const letterHTML = `
             <div style="margin-bottom: 40px;">
                 <strong>${buyerName.toUpperCase()}</strong><br>
@@ -760,11 +703,9 @@ class DLPChatbotApp {
             </p>
         `;
 
-        // 5. Inject and display the letter
         document.getElementById('letterContent').innerHTML = letterHTML;
         document.getElementById('noticeLetterOutputArea').style.display = 'block';
         
-        // Scroll smoothly to the generated letter
         document.getElementById('noticeLetterOutputArea').scrollIntoView({ behavior: 'smooth' });
         
         if (this.showNotification) {
@@ -773,7 +714,7 @@ class DLPChatbotApp {
     }
 
     // ==========================================================
-    // 4. AI IMAGE SCANNER LOGIC
+    // 5. AI IMAGE SCANNER & PDF LOGIC
     // ==========================================================
     handleImageUpload() {
         const file = this.defectImage.files[0];
@@ -836,9 +777,6 @@ class DLPChatbotApp {
         }
     }
 
-    // ==========================================================
-    // 5. PDF SCANNER LOGIC
-    // ==========================================================
     handlePdfUpload() {
         const file = this.pdfFile.files[0];
         if (file && file.type === "application/pdf") {
@@ -900,7 +838,7 @@ class DLPChatbotApp {
     }
 
     // ==========================================================
-    // 6. UTILITIES & SPEECH SYNTHESIS
+    // 6. UTILITIES
     // ==========================================================
     switchTab(tabName) {
         this.stopSpeaking();
@@ -923,11 +861,22 @@ class DLPChatbotApp {
         localStorage.setItem('theme', isDark ? 'dark' : 'light');
     }
 
-    clearAllData() {
-        if(confirm("Delete all chat history?")) {
-            this.conversations = [];
-            localStorage.removeItem('dlp_conversations');
-            this.startNewChat();
+    async clearAllData() {
+        if(confirm("Delete all your secure chat history permanently?")) {
+            try {
+                const response = await fetch('/api/clear-history', { method: 'DELETE' });
+                const data = await response.json();
+                
+                if (data.success) {
+                    this.conversations = [];
+                    this.startNewChat();
+                    if (this.showNotification) this.showNotification('History cleared from database!', 'success');
+                } else {
+                    alert("Failed to clear history: " + data.error);
+                }
+            } catch (e) {
+                console.error("Error clearing history", e);
+            }
         }
     }
 
@@ -1016,7 +965,6 @@ class DLPChatbotApp {
     }
 }
 
-// Initialize
 document.addEventListener('DOMContentLoaded', () => {
     window.dlpChatbot = new DLPChatbotApp();
 });

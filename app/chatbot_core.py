@@ -4,7 +4,7 @@ import pypdf
 import io
 
 # ⚠️ Paste your actual Groq API key here
-GROQ_API_KEY = "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"
+GROQ_API_KEY = "your-groq-api-key-here"
 
 try:
     client = Groq(api_key=GROQ_API_KEY)
