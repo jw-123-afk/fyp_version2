@@ -402,3 +402,27 @@ body.light-mode .history-rename-input:focus {
     border-color: var(--neon-green); /* Highlights the border in your corporate blue */
     box-shadow: 0 0 10px rgba(37, 99, 235, 0.15); /* Soft blue shadow */
 }
+
+/* --- SIDEBAR TOGGLE ANIMATIONS --- */
+/* Sidebar Sliding Animation */
+.sidebar {
+    transition: transform 0.3s ease, width 0.3s ease, padding 0.3s ease;
+}
+
+body.sidebar-closed .sidebar {
+    transform: translateX(-100%);
+    width: 0;
+    padding: 0;
+    overflow: hidden;
+    border: none; /* Removes the border line when closed */
+}
+
+/* Main Content Stretching */
+.main-content {
+    transition: margin-left 0.3s ease, width 0.3s ease;
+}
+
+body.sidebar-closed .main-content {
+    margin-left: 0 !important;
+    width: 100% !important;
+}

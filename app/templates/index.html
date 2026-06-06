@@ -4,13 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DLP Chatbot - Malaysian Property Law</title>
-    <!-- Cache buster set to v7 to load the new Botify theme -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=7">
-</head>
+    </head>
 <body>
     <div class="app-container">
         
-        <!-- ==================== SIDEBAR ==================== -->
         <aside class="sidebar">
             <div class="sidebar-header">
                 <div class="brand-title">
@@ -30,6 +28,11 @@
                 <button class="nav-tab" data-tab="scanner">📸 AI Scanner</button>
                 <button class="nav-tab" data-tab="pdfscanner">📄 PDF Scanner</button>
                 
+                <button class="nav-tab" data-tab="aivoice">🤖 AI Voice</button>
+
+                <button id="logoutBtn" class="nav-tab" data-tab="logout" onclick="window.location.href='/api/logout'">
+                    🚪 Logout
+                </button>
             </nav>
 
             <div class="conversation-history-section">
@@ -43,10 +46,24 @@
             </div>
         </aside>
 
-        <!-- ==================== MAIN CONTENT ==================== -->
         <main class="main-content">
             
-            <!-- 1. CHAT TAB -->
+            <button id="sidebarToggleBtn" style="
+                background: transparent; 
+                border: none; 
+                color: var(--text-primary); 
+                font-size: 28px; 
+                cursor: pointer; 
+                padding: 15px 20px; 
+                position: sticky; 
+                top: 0; 
+                z-index: 1000;
+                display: block;
+                text-align: left;
+            ">
+                ☰
+            </button>
+            
             <section id="chat" class="tab-content active">
                 <div class="chat-container">
                     <div id="welcomeScreen" class="welcome-screen">
@@ -91,7 +108,31 @@
                 </div>
             </section>
 
-          <!-- 2. GUIDELINES TAB -->
+           <section id="aivoice" class="tab-content">
+                <div class="content-header" style="margin-bottom: 10px;">
+                    <h2>🤖 AI Voice Assistant</h2>
+                    <p>Speak directly with your virtual legal assistant.</p>
+                </div>
+                
+                <div style="display: flex; flex-direction: column; align-items: center; height: calc(100vh - 200px); justify-content: space-between;">
+                    
+                    <div style="flex-grow: 1; width: 100%; max-width: 600px; min-height: 200px; display: flex; justify-content: center; align-items: center; margin-bottom: 15px;">
+                        <canvas id="ai-assistant-3d" style="width: 100%; height: 100%; outline: none;"></canvas>
+                    </div>
+                    
+                    <div class="chat-input-area" style="width: 100%; max-width: 600px; margin-bottom: 20px;">
+                        <textarea 
+                            id="voiceInput" 
+                            class="chat-input" 
+                            placeholder="Type a message for the bot to speak..."
+                            rows="1"
+                        ></textarea>
+                        <button id="speakBtn" class="btn-primary">🔊 Speak</button>
+                    </div>
+                    
+                </div>
+            </section>
+
             <section id="guidelines" class="tab-content">
                 <div class="guidelines-container" style="max-width: 850px; margin: 0 auto; width: 100%;">
                     <article class="guidelines-paper" style="padding: 40px;">
@@ -103,7 +144,6 @@
 
                         <div class="guidelines-content" style="color: var(--text-secondary); line-height: 1.7; font-size: 15px;">
                             
-                            <!-- WHAT IS DLP -->
                             <div class="guide-section" style="margin-bottom: 40px;">
                                 <h3 style="color: var(--text-primary); font-size: 20px; margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
                                     <span style="font-size: 24px;">🔑</span> What is the Defect Liability Period (DLP)?
@@ -113,7 +153,6 @@
                                 </div>
                             </div>
 
-                            <!-- QUICK START TUTORIAL -->
                             <div class="guide-section" style="margin-bottom: 40px;">
                                 <h3 style="color: var(--text-primary); font-size: 20px; margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
                                     <span style="font-size: 24px;">🚀</span> Quick Start Tutorial
@@ -126,13 +165,11 @@
                                 </ol>
                             </div>
 
-                            <!-- FEATURE GUIDE -->
                             <div class="guide-section" style="margin-bottom: 40px;">
                                 <h3 style="color: var(--text-primary); font-size: 20px; margin-bottom: 20px; border-bottom: 1px solid var(--border-dim); padding-bottom: 10px;">
                                     🛠️ Feature Guide: How to use this app
                                 </h3>
                                 
-                                <!-- Feature 1 -->
                                 <div style="margin-bottom: 25px;">
                                     <h4 style="color: var(--neon-green); font-size: 16px; margin-bottom: 5px;">💬 Current Chat</h4>
                                     <p><strong>When to use:</strong> You have a specific question about property law, your rights, or how the DLP process works.<br>
@@ -140,7 +177,6 @@
                                     <strong>Example:</strong> <em>"My roof is leaking but the developer says it's my fault. What should I do?"</em></p>
                                 </div>
 
-                                <!-- Feature 2 -->
                                 <div style="margin-bottom: 25px;">
                                     <h4 style="color: var(--neon-green); font-size: 16px; margin-bottom: 5px;">⚖️ Assessment Tool</h4>
                                     <p><strong>When to use:</strong> You want to calculate your exact warranty timeline and check if you are within the 30-day developer repair limit.<br>
@@ -148,7 +184,6 @@
                                     <strong>Example:</strong> Enter your VP date as "15 Jan 2023" to see if your warranty is expiring soon!</p>
                                 </div>
 
-                                <!-- Feature 3 -->
                                 <div style="margin-bottom: 25px;">
                                     <h4 style="color: var(--neon-green); font-size: 16px; margin-bottom: 5px;">📝 Notice Letter Generator</h4>
                                     <p><strong>When to use:</strong> You are ready to formally demand the developer to fix the defects you found.<br>
@@ -156,7 +191,6 @@
                                     <strong>Example:</strong> Generate the letter, print it, sign it, and hand it to the management office.</p>
                                 </div>
 
-                                <!-- Feature 4 -->
                                 <div style="margin-bottom: 25px;">
                                     <h4 style="color: var(--neon-green); font-size: 16px; margin-bottom: 5px;">📸 AI Image Scanner</h4>
                                     <p><strong>When to use:</strong> You see a crack or stain but don't know what to call it or if it's serious.<br>
@@ -164,7 +198,6 @@
                                     <strong>Example:</strong> Upload a photo of your hollow floor tiles.</p>
                                 </div>
 
-                                <!-- Feature 5 -->
                                 <div style="margin-bottom: 25px;">
                                     <h4 style="color: var(--neon-green); font-size: 16px; margin-bottom: 5px;">📄 PDF Document Scanner</h4>
                                     <p><strong>When to use:</strong> You have a long legal document (like your SPA or a letter from the developer) and want a quick summary.<br>
@@ -172,7 +205,6 @@
                                     <strong>Example:</strong> Upload your 100-page SPA to instantly find your specific DLP clauses.</p>
                                 </div>
                                 
-                                <!-- Feature 6 -->
                                 <div style="margin-bottom: 25px;">
                                     <h4 style="color: var(--neon-green); font-size: 16px; margin-bottom: 5px;">📖 Legal References</h4>
                                     <p><strong>When to use:</strong> You want to read the actual, official Malaysian laws regarding housing.<br>
@@ -180,7 +212,6 @@
                                 </div>
                             </div>
 
-                            <!-- BEST PRACTICES -->
                             <div class="guide-section" style="margin-bottom: 40px; background: rgba(0, 255, 159, 0.05); padding: 20px; border-radius: 8px;">
                                 <h3 style="color: var(--text-primary); font-size: 18px; margin-bottom: 10px;">⭐ Best Practices & Tips</h3>
                                 <ul style="margin-left: 20px; display: flex; flex-direction: column; gap: 8px;">
@@ -191,7 +222,6 @@
                                 </ul>
                             </div>
 
-                            <!-- DISCLAIMER -->
                             <div class="guide-section" style="margin-bottom: 20px; text-align: center;">
                                 <p style="font-size: 13px; color: #ef4444; border-top: 1px solid var(--border-dim); padding-top: 20px;">
                                     <strong>⚠️ IMPORTANT LEGAL DISCLAIMER:</strong><br>
@@ -208,7 +238,6 @@
                 </div>
             </section>
             
-            <!-- 3. ASSESSMENT TAB (NEW CALCULATOR SUITE) -->
             <section id="assessment" class="tab-content">
                 <div class="content-header">
                     <h2>⚖️ Comprehensive DLP Assessment</h2>
@@ -217,7 +246,6 @@
                 
                 <form id="dlpCalculatorForm" class="assessment-form" style="max-width: 800px;">
                     
-                    <!-- SECTION 1: DLP Timeline -->
                     <h3 style="color: var(--neon-green); margin-bottom: 15px; border-bottom: 1px solid var(--border-dim); padding-bottom: 5px;">
                         1. DLP Timeline
                     </h3>
@@ -226,7 +254,6 @@
                         <input type="date" id="vpDate" required>
                     </div>
 
-                    <!-- SECTION 2: Repair Notice Deadline -->
                     <h3 style="color: var(--neon-green); margin-top: 30px; margin-bottom: 15px; border-bottom: 1px solid var(--border-dim); padding-bottom: 5px;">
                         2. Repair Notice Deadline
                     </h3>
@@ -234,9 +261,7 @@
                         <label for="noticeDate">Date Written Notice Sent to Developer (Leave blank if not sent yet):</label>
                         <input type="date" id="noticeDate">
                     </div>
-
-                    <!-- SECTION 3: Stakeholder Retention Sum -->
-                    <h3 style="color: var(--neon-green); margin-top: 30px; margin-bottom: 15px; border-bottom: 1px solid var(--border-dim); padding-bottom: 5px;">
+<h3 style="color: var(--neon-green); margin-top: 30px; margin-bottom: 15px; border-bottom: 1px solid var(--border-dim); padding-bottom: 5px;">
                         3. Stakeholder Retention Sum
                     </h3>
                     <div class="form-group">
@@ -244,12 +269,10 @@
                         <input type="number" id="purchasePrice" min="0" placeholder="e.g., 500000" required>
                     </div>
 
-                    <!-- SECTION 4: Repair Cost Estimator -->
                     <h3 style="color: var(--neon-green); margin-top: 30px; margin-bottom: 15px; border-bottom: 1px solid var(--border-dim); padding-bottom: 5px;">
                         4. Repair Cost Estimator
                     </h3>
                     <div id="defectItemsContainer">
-                        <!-- Dynamic defect rows will be added here -->
                         <div class="form-group defect-row" style="display: flex; gap: 15px;">
                             <input type="text" class="defect-desc" placeholder="Defect Description (e.g. Leaking Roof)" style="flex: 2;" required>
                             <input type="number" class="defect-cost" placeholder="Est. Cost (RM)" style="flex: 1;" min="0" required>
@@ -260,18 +283,15 @@
                         + Add Another Defect
                     </button>
 
-                    <!-- SUBMIT BUTTON -->
                     <button type="submit" class="btn-primary" style="width: 100%;">
                         Generate Full Report
                     </button>
 
                 </form>
 
-                <!-- The Report Container -->
                 <div id="assessmentReportArea" class="scanner-result" style="display: none; max-width: 800px; margin: 30px auto;"></div>
             </section>
 
-            <!-- 4. LEGAL REFERENCES TAB -->
             <section id="legal" class="tab-content">
                 <div class="content-header">
                     <h2>Legal References</h2>
@@ -379,7 +399,6 @@
                 </div>
             </section>
 
-            <!-- 6. AI IMAGE SCANNER TAB -->
             <section id="scanner" class="tab-content">
                 <div class="content-header">
                     <h2>📸 AI Defect Scanner</h2>
@@ -407,7 +426,6 @@
                 </div>
             </section>
 
-            <!-- 7. PDF SCANNER TAB -->
             <section id="pdfscanner" class="tab-content">
                 <div class="content-header">
                     <h2>📄 AI Document Scanner</h2>
@@ -441,7 +459,18 @@
 
     <div id="notification" class="notification"></div>
     
-    <!-- Cache buster set to v7 here as well -->
+    <script type="module">
+        import { Application } from 'https://unpkg.com/@splinetool/runtime@1.0.51/build/runtime.js';
+        
+        const canvas = document.getElementById('ai-assistant-3d');
+        window.splineApp = new Application(canvas);
+        
+        // PASTE YOUR EXPORTED SPLINE URL HERE:
+        window.splineApp.load('https://prod.spline.design/tPHjhOuGyCeezWzp/scene.splinecode');
+    </script>
+
     <script src="/static/js/app.js?v=99"></script>
 </body>
 </html>
+
+                    

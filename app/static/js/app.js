@@ -25,6 +25,7 @@ class DLPChatbotApp {
         this.tabContents = document.querySelectorAll('.tab-content');
         this.conversationListEl = document.getElementById('conversationList');
         this.newChatBtn = document.getElementById('newChatBtn');
+        this.sidebarToggleBtn = document.getElementById('sidebarToggleBtn');
         
         this.userInput = document.getElementById('userInput');
         this.sendBtn = document.getElementById('sendBtn');
@@ -70,6 +71,7 @@ class DLPChatbotApp {
 
         if(this.newChatBtn) this.newChatBtn.addEventListener('click', () => this.startNewChat());
         if(this.sendBtn) this.sendBtn.addEventListener('click', () => this.sendMessage());
+        if(this.sidebarToggleBtn) this.sidebarToggleBtn.addEventListener('click', () => this.toggleSidebar());
 
         if(this.userInput) {
             this.userInput.addEventListener('keypress', (e) => {
@@ -861,6 +863,11 @@ class DLPChatbotApp {
         localStorage.setItem('theme', isDark ? 'dark' : 'light');
     }
 
+    toggleSidebar() {
+        // This adds or removes the "sidebar-closed" class from the body, triggering the CSS animation!
+        document.body.classList.toggle('sidebar-closed');
+    }
+
     async clearAllData() {
         if(confirm("Delete all your secure chat history permanently?")) {
             try {
@@ -942,22 +949,46 @@ class DLPChatbotApp {
         }
 
         this.stopSpeaking();
-
         const utterance = new SpeechSynthesisUtterance(text);
+        const splineViewer = document.getElementById('ai-assistant-3d');
 
         utterance.onstart = () => {
             btn.textContent = '⏹️'; 
             btn.classList.add('speaking');
             messageDiv.classList.add('reading');
+            
+            if (splineViewer) {
+                // 1. Trigger the talking animation
+                splineViewer.dispatchEvent(new CustomEvent('spline-trigger', { detail: { name: 'Talking' } }));
+                
+                // 2. THE FIX: Fire a fake "Hover Out" event to trick Spline into resetting!
+                splineViewer.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }));
+                splineViewer.dispatchEvent(new MouseEvent('mouseout', { bubbles: true }));
+                
+                // 3. Keep the blindfold on so it ignores the mouse while talking
+                splineViewer.style.pointerEvents = 'none';
+            }
         };
 
         utterance.onend = () => {
             this.stopSpeaking(); 
+            
+            if (splineViewer) {
+                // 1. Go back to the Idle animation
+                splineViewer.dispatchEvent(new CustomEvent('spline-trigger', { detail: { name: 'Idle' } }));
+                
+                // 2. Take off the blindfold so it tracks the mouse again
+                splineViewer.style.pointerEvents = 'auto';
+            }
         };
 
         utterance.onerror = (e) => {
             console.error('Speech error:', e);
             this.stopSpeaking();
+            if (splineViewer) {
+                splineViewer.dispatchEvent(new CustomEvent('spline-trigger', { detail: { name: 'Idle' } }));
+                splineViewer.style.pointerEvents = 'auto';
+            }
         };
 
         this.currentUtterance = utterance;
@@ -968,3 +999,115 @@ class DLPChatbotApp {
 document.addEventListener('DOMContentLoaded', () => {
     window.dlpChatbot = new DLPChatbotApp();
 });
+
+// --- AI VOICE ASSISTANT LOGIC ---
+
+document.addEventListener('DOMContentLoaded', () => {
+    const speakBtn = document.getElementById('speakBtn');
+    const voiceInput = document.getElementById('voiceInput');
+    
+    // 1. Setup the Free Browser Speech Recognition (Speech-to-Text)
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    
+    if (!SpeechRecognition) {
+        speakBtn.textContent = 'Browser not supported';
+        speakBtn.disabled = true;
+        console.error("Speech recognition is not supported in this browser. Please use Chrome or Edge.");
+        return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = 'en-US'; // You can change this to 'en-MY' or 'ms-MY' if needed
+
+    // When you click the SPEAK button, start listening
+    speakBtn.addEventListener('click', () => {
+        recognition.start();
+        speakBtn.innerHTML = '🎙️ Listening...';
+        speakBtn.classList.add('listening');
+        voiceInput.value = ''; // Clear previous text
+    });
+
+    // 2. When the browser finishes turning your voice into text
+    recognition.onresult = async (event) => {
+        const transcript = event.results[0][0].transcript;
+        voiceInput.value = transcript; // Put your words in the text box
+        speakBtn.innerHTML = '⏳ Thinking...';
+        speakBtn.classList.remove('listening');
+
+        // 3. Send the text to your Flask backend (using your existing chat endpoint)
+        try {
+            // NOTE: Change '/api/chat' if your Python backend uses a different URL for receiving messages
+            const response = await fetch('/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: transcript })
+            });
+
+            const data = await response.json();
+            
+            // Extract the bot's reply from your JSON response
+            // (Adjust "data.response" to match whatever your Flask app returns, e.g., data.reply)
+            const botReply = data.response || data.reply || "I received your message but couldn't parse the reply.";
+            
+            // 4. Make the robot speak and animate
+            speakAndAnimate(botReply);
+
+        } catch (error) {
+            console.error("Error communicating with backend:", error);
+            speakBtn.innerHTML = '🔊 Speak';
+            voiceInput.value = "Error: Could not reach the server.";
+        }
+    };
+
+    // Reset button if speech recognition fails or ends without result
+    recognition.onerror = () => {
+        speakBtn.innerHTML = '🔊 Speak';
+        speakBtn.classList.remove('listening');
+    };
+});
+
+// 5. The function that handles the voice output and 3D animation
+function speakAndAnimate(text) {
+    const speakBtn = document.getElementById('speakBtn');
+    
+    // Stop any current audio
+    window.speechSynthesis.cancel();
+    
+    // Create the new audio utterance (Text-to-Speech)
+    const utterance = new SpeechSynthesisUtterance(text);
+    
+    // When the voice STARTS speaking: trigger Spline "Mouse Down"
+    utterance.onstart = () => {
+        speakBtn.innerHTML = '⏹️ Stop Talking';
+        if (window.splineApp) {
+            window.splineApp.emitEvent('mouseDown', 'Bot'); 
+        }
+    };
+
+    // When the voice STOPS speaking: trigger Spline "Mouse Up"
+    utterance.onend = () => {
+        speakBtn.innerHTML = '🔊 Speak';
+        if (window.splineApp) {
+            window.splineApp.emitEvent('mouseUp', 'Bot');
+        }
+        document.getElementById('voiceInput').value = '';
+    };
+
+    // Speak the text!
+    window.speechSynthesis.speak(utterance);
+    
+    // Allow user to click the button again to stop the speech early
+    speakBtn.onclick = () => {
+        if (window.speechSynthesis.speaking) {
+            window.speechSynthesis.cancel();
+            speakBtn.innerHTML = '🔊 Speak';
+            if (window.splineApp) window.splineApp.emitEvent('mouseUp', 'Bot');
+            document.getElementById('voiceInput').value = '';
+        } else {
+            // If not speaking, trigger normal click logic (this avoids breaking the earlier event listener)
+            document.getElementById('speakBtn').click();
+        }
+    };
+}

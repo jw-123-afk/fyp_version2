@@ -13,14 +13,20 @@ dependencies:
   - numpy
   - watchdog
   - pip:
-    - flask_sqlalchemy
-    - flask-cors
-    - requests
-    - pytest
-    - black
-    - ollama
-    - groq
-    - pymupdf
-    - pypdf
-  
-    # add other pip deps here
+      - flask_sqlalchemy
+      - flask-cors
+      - requests
+      - pytest
+      - black
+      - ollama
+      - groq
+      - pymupdf
+      - pypdf
+      
+      # NEW RAG CHUNKING DEPENDENCIES
+      - langchain
+      - langchain-community
+      - langchain-text-splitters
+      - langchain-huggingface
+      - faiss-cpu
+      - sentence-transformers
