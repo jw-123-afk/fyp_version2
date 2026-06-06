@@ -8,6 +8,7 @@ Superchat is a Flask web app for Malaysian property-law workflows around the Def
 - Answers Malaysian property-law questions using legal PDFs loaded from `legal_documents/`.
 - Analyzes uploaded defect images with Groq vision models.
 - Summarizes uploaded legal PDFs such as SPAs or developer letters.
+- Features Speech-to-Text and Text-to-Speech (with 3D avatar integration) for accessible interaction.
 - Generates a client-side DLP assessment report from VP date, notice date, purchase price, and repair estimates.
 - Generates a client-side formal notice letter for defects reporting.
 
@@ -15,9 +16,9 @@ Superchat is a Flask web app for Malaysian property-law workflows around the Def
 
 - Backend: Flask, Flask-SQLAlchemy
 - Database: PostgreSQL
-- AI: Groq API, Llama chat/vision models
+- AI: Groq API, Llama chat/vision models, LangChain, FAISS, HuggingFace Embeddings
 - PDF parsing: PyMuPDF (`fitz`), `pypdf`
-- Frontend: Jinja templates, vanilla JavaScript, CSS
+- Frontend: Jinja templates, vanilla JavaScript (ES6+ OOP), pure CSS3 (Dark/Light mode)
 - Containerization: Docker, Docker Compose, Conda-based image
 
 ## Project layout
@@ -60,7 +61,7 @@ Chat messages are stored in the `Message` table and grouped by `chat_id`.
 
 - `POST /api/chat`
 
-The chatbot reads text extracted from PDFs in `legal_documents/` at startup and sends the user query plus document context to Groq.
+The chatbot reads text extracted from PDFs in `legal_documents/` at startup, chunks it using LangChain, and indexes it into a FAISS vector database. It retrieves relevant context and sends the user query plus document context to Groq.
 
 ### 3. AI analysis endpoints
 
@@ -148,7 +149,7 @@ On startup, the app scans every PDF in `legal_documents/` and concatenates the e
 
 ## Important implementation notes
 
-- `requirements.txt` does not list every package used by the current code. In particular, the app also needs `flask_sqlalchemy`, `psycopg2-binary`, and `pymupdf`.
+- `requirements.txt` does not list every package used by the current code. In particular, the app also needs `flask_sqlalchemy`, `psycopg2-binary`, `pymupdf`, `langchain-text-splitters`, `langchain-community`, `langchain-huggingface`, `faiss-cpu`, `sentence-transformers`, and `pypdf`.
 - `app/chatbot_core.py` currently contains a hardcoded Groq API key in source. This should be moved to environment variables before any real deployment.
 - `SECRET_KEY` and database settings are also hardcoded.
 - `app/dlp_knowledge_base.py` currently returns empty results for `get_all_guidelines()` and `get_all_legal_references()`, while the UI still exposes those sections.
