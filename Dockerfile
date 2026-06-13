@@ -19,5 +19,6 @@ ENV FLASK_APP=app:app
 # 7. Expose the port
 EXPOSE 5000
 
-# 8. Start the app
-CMD ["flask", "run", "--host=0.0.0.0", "--port=5000"]
+# 8. Start the app (UPDATED FOR RENDER)
+# This shell form allows Render to inject its own dynamic $PORT variable automatically, falling back to 5000 locally.
+CMD flask run --host=0.0.0.0 --port=${PORT:-5000}
