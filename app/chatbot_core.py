@@ -2,14 +2,16 @@ from groq import Groq
 from .dlp_knowledge_base import load_pdf_knowledge
 import pypdf
 import io
+import os
 
 # NEW LANGCHAIN IMPORTS FOR RAG CHUNKING
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
 from langchain_huggingface import HuggingFaceEmbeddings
 
-# ⚠️ Paste your actual Groq API key here
-GROQ_API_KEY = ""
+# ⚠️ SECURITY WARNING: Never push your real API key to the GitHub Organization!
+# It is highly recommended to use os.getenv("GROQ_API_KEY") for your final submission.
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 try:
     client = Groq(api_key=GROQ_API_KEY)
@@ -48,9 +50,13 @@ else:
 
 
 # =====================================================================
-# 2. MAIN CHATBOT LOGIC
+# 2. MAIN CHATBOT LOGIC (NOW WITH CONVERSATIONAL MEMORY)
 # =====================================================================
-def process_query(user_query):
+def process_query(user_query, chat_history=[]):
+    """
+    Processes the user query with RAG and conversational memory.
+    chat_history expects: [("user msg", "bot reply"), ("user msg", "bot reply")]
+    """
     if not client:
         return "Error: AI Client not initialized. Check your API key."
 
@@ -66,13 +72,18 @@ def process_query(user_query):
     safe_context = "No legal documents available."
     if vector_store:
         try:
-            relevant_docs = vector_store.similarity_search(user_query, k=4)
+            # We combine the last user message with the new query so FAISS understands the context of the search
+            search_query = user_query
+            if chat_history:
+                search_query = f"{chat_history[-1][0]} {user_query}"
+                
+            relevant_docs = vector_store.similarity_search(search_query, k=4)
             safe_context = "\n\n---\n\n".join([doc.page_content for doc in relevant_docs])
         except Exception as e:
             print(f"Vector search error: {e}")
 
     # SYSTEM PROMPT
-    prompt = f"""You are 'Superchat', a specialized legal assistant for Malaysian Property Law.
+    system_prompt = f"""You are 'Superchat', a specialized legal assistant for Malaysian Property Law.
     Read the following official legal document excerpts carefully.
     
     Rules for responding:
@@ -83,13 +94,24 @@ def process_query(user_query):
 
     Document Text (Extracted Context):
     {safe_context}
-    
-    User Question: {user_query}
     """
+
+    # =====================================================================
+    # BUILD THE MEMORY ARRAY FOR GROQ
+    # =====================================================================
+    messages = [{"role": "system", "content": system_prompt}]
+    
+    # Loop through the database history and feed it to the AI brain
+    for past_user_msg, past_bot_msg in chat_history:
+        messages.append({"role": "user", "content": past_user_msg})
+        messages.append({"role": "assistant", "content": past_bot_msg})
+        
+    # Finally, append the brand new question
+    messages.append({"role": "user", "content": user_query})
 
     try:
         chat_completion = client.chat.completions.create(
-            messages=[{"role": "user", "content": prompt}],
+            messages=messages,
             model="llama-3.3-70b-versatile",
             temperature=0.3
         )

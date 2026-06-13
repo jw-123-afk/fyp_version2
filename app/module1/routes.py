@@ -107,8 +107,28 @@ def api_chat():
         
         if not message:
             return jsonify({"error": "Empty message"}), 400
+
+        # ==========================================
+        # NEW MEMORY LOGIC: Fetch history from Database
+        # ==========================================
+        previous_messages = Message.query.filter_by(
+            user_id=current_user_id, 
+            chat_id=chat_id
+        ).order_by(Message.timestamp).all()
+        
+        # Format history for LangChain: [("user msg", "bot reply"), ...]
+        formatted_history = []
+        temp_user_msg = None
+        
+        for msg in previous_messages:
+            if msg.sender == 'user':
+                temp_user_msg = msg.text
+            elif msg.sender == 'bot' and temp_user_msg:
+                formatted_history.append((temp_user_msg, msg.text))
+                temp_user_msg = None
+        # ==========================================
             
-        # 1. Save USER message
+        # 1. Save NEW USER message to Database
         try:
             user_msg = Message(text=message, sender='user', user_id=current_user_id, chat_id=chat_id)
             db.session.add(user_msg)
@@ -118,10 +138,10 @@ def api_chat():
             print(f"❌ CRITICAL DB ERROR (User Msg): {db_e}")
             db.session.rollback()
 
-        # 2. Get AI response
-        response_text = process_query(message)
+        # 2. Get AI response (NOW PASSING HISTORY TO YOUR CORE BOT!)
+        response_text = process_query(message, formatted_history)
         
-        # 3. Save BOT message
+        # 3. Save BOT message to Database
         try:
             bot_msg = Message(text=response_text, sender='bot', user_id=current_user_id, chat_id=chat_id)
             db.session.add(bot_msg)
