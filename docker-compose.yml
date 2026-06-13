@@ -1,38 +1,31 @@
+version: '3.8'
+
 services:
-  flask:
-    # The name of the service is 'flask'
-    build:
-      context: .  # This refers to the current directory, where your Dockerfile is located
-      dockerfile: Dockerfile  # You can specify a different Dockerfile name if necessary
-    container_name: flask_app  # Name of the running container
-    working_dir: /usr/src/app  # Add this line
-    environment:
-      - PYTHONPATH=/usr/src/app
-      - FLASK_APP=app.start_chatbot:app # Assuming your Flask app instance is named 'app' in app/__init__.py
-      - FLASK_ENV=development
-    volumes:
-      - ./:/usr/src/app    # mount project root so /usr/src/app/app is the package
+  flask_app:
+    build: .
     ports:
-      - "5100:5000"  # Expose Flask app on port 5000
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    
-    command: ["conda", "run", "--no-capture-output", "-n", "base", "flask", "run", "--host=0.0.0.0", "--port=5000", "--reload"]
-    restart: unless-stopped
+      # Map local port 5000 directly to container port 5000
+      - "5000:5000"
+    environment:
+      # Force it to use 5000 locally
+      - PORT=5000
+      # YOUR AI KEY GOES HERE so the bot doesn't crash locally
+      - 
+      # Database connection
+      - DATABASE_URL=postgresql://postgres:postgres@flask_db:5432/postgres
     depends_on:
-      - flask_db  # If you have a database service, you can define it here as a dependency (optional)
+      - flask_db
 
   flask_db:
-    image: postgres:16 # Example for adding a PostgreSQL database service
-    container_name: flask_db
+    image: postgres:16
     environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: flaskdb
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=postgres
     ports:
-      - "5432:5432"  # Expose the PostgreSQL port
+      - "5432:5432"
     volumes:
-      - flask_db_data:/var/lib/postgresql/data  # Store data persistently
+      - pgdata:/var/lib/postgresql/data
 
 volumes:
-  flask_db_data:  # This is for persistent storage of your database data
+  pgdata:

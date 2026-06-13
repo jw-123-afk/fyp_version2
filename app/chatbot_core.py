@@ -4,10 +4,7 @@ import pypdf
 import io
 import os
 
-# NEW LANGCHAIN IMPORTS FOR RAG CHUNKING
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_community.vectorstores import FAISS
-from langchain_huggingface import HuggingFaceEmbeddings
+# 🛑 THE HEAVY AI IMPORTS HAVE BEEN REMOVED FROM HERE 🛑
 
 # ⚠️ SECURITY WARNING: Never push your real API key to the GitHub Organization!
 # It is highly recommended to use os.getenv("GROQ_API_KEY") for your final submission.
@@ -22,31 +19,40 @@ except Exception as e:
 # =====================================================================
 # 1. INITIALIZE RAG (RETRIEVAL-AUGMENTED GENERATION) ENGINE
 # =====================================================================
-print("Loading PDF Documents...")
-PDF_CONTEXT = load_pdf_knowledge()
-
 vector_store = None
 
-if PDF_CONTEXT and PDF_CONTEXT.strip():
-    print("Chunking text for Vector Database...")
-    # Break the massive text into overlapping chunks
-    text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=1000,
-        chunk_overlap=200,
-        separators=["\n\n", "\n", ".", " ", ""]
-    )
-    chunks = text_splitter.split_text(PDF_CONTEXT)
-
-    # Download the open-source embedding model and index the text
-    print("Building FAISS Vector Database... (This may take a moment on first run)")
-    try:
-        embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-        vector_store = FAISS.from_texts(chunks, embeddings)
-        print("Superchat AI is Ready!")
-    except Exception as e:
-        print(f"Error building Vector Database: {e}")
+# 🛑 MEMORY BYPASS FOR RENDER FREE TIER 🛑
+if os.getenv("SKIP_FAISS") == "true":
+    print("Cloud Environment Detected: Skipping local FAISS build and heavy imports to save RAM.", flush=True)
 else:
-    print("WARNING: No PDF documents loaded. AI will not have legal context.")
+    # THE HEAVY IMPORTS ARE NOW HIDING HERE!
+    from langchain_text_splitters import RecursiveCharacterTextSplitter
+    from langchain_community.vectorstores import FAISS
+    from langchain_huggingface import HuggingFaceEmbeddings
+
+    print("Loading PDF Documents...", flush=True)
+    PDF_CONTEXT = load_pdf_knowledge()
+
+    if PDF_CONTEXT and PDF_CONTEXT.strip():
+        print("Chunking text for Vector Database...", flush=True)
+        # Break the massive text into overlapping chunks
+        text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=1000,
+            chunk_overlap=200,
+            separators=["\n\n", "\n", ".", " ", ""]
+        )
+        chunks = text_splitter.split_text(PDF_CONTEXT)
+
+        # Download the open-source embedding model and index the text
+        print("Building FAISS Vector Database... (This may take a moment on first run)", flush=True)
+        try:
+            embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+            vector_store = FAISS.from_texts(chunks, embeddings)
+            print("Superchat AI is Ready!", flush=True)
+        except Exception as e:
+            print(f"Error building Vector Database: {e}", flush=True)
+    else:
+        print("WARNING: No PDF documents loaded. AI will not have legal context.", flush=True)
 
 
 # =====================================================================
