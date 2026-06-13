@@ -13,12 +13,9 @@ RUN conda env update -n base -f environment.yml
 # 5. Copy your project code
 COPY . /usr/src/app
 
-# 6. Point exactly to your app factory function!
-ENV FLASK_APP="app:create_app()"
-
-# 7. Set Render's default port
+# 6. Set Render's default port
 ENV PORT=10000
 EXPOSE 10000
 
-# 8. Start the app USING CONDA RUN to ensure the environment is active
-CMD ["conda", "run", "--no-capture-output", "-n", "base", "flask", "run", "--host=0.0.0.0", "--port=10000"]
+# 7. Start the app using plain Python (The Nuclear Option)
+CMD ["python", "-u", "run.py"]
